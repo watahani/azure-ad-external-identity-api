@@ -1,0 +1,3 @@
+# External Identity Rest API Samples
+
+Sample [Login](https://login.microsoftonline.com/69191dcf-9be5-47ba-9010-b356d335a6e4/oauth2/v2.0/authorize?client_id=7eaa6d87-469d-4ded-a540-3fcd7425fcf6&redirect_uri=https%3a%2f%2fjwt.ms%2f&response_type=id_token&scope=openid&nonce=defaultNonce&sso_nonce=AQABAAAAAAAGV_bv21oQQ4ROqh0_1-tAAjIEkf8PLy4sTkRMTK5_x-I6ODjJuLwvWXxb3YxSRGpIT77jtsa6OLuwoGcZvin3Q32RaCr621brYs_VjR6XNiAA&client-request-id=1c9fbba1-8fd7-48bc-8ed5-8d008bd1c1fb&mscrid=1c9fbba1-8fd7-48bc-8ed5-8d008bd1c1fb)
