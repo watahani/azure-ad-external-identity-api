@@ -1,10 +1,12 @@
 import { AzureFunction, HttpRequest, Context } from "@azure/functions";
+import { Authenticate } from "./auth";
 
-export const API_VERSION = "1.0.0";
-export const EXTENSION_APP_ID = "6b24c143de614292ac183d26cb965604";
+export const API_VERSION = process.env["API_VERSION"] || "1.0.0";
+export const EXTENSION_APP_ID =
+  process.env["EXTENSION_APP_ID"] || "6b24c143de614292ac183d26cb965604"; // sample value
 
-export class B2CValidationError extends Error {
-  response: B2CResponse;
+export class B2XValidationError extends Error {
+  response: B2XResponse;
   innerError: Error;
   constructor(
     userMessage: string,
@@ -33,16 +35,16 @@ export class B2CValidationError extends Error {
   }
 }
 
-export type B2CAction = "Continue" | "ShowBlockPage" | "ValidationError";
+export type B2XAction = "Continue" | "ShowBlockPage" | "ValidationError";
 
-export interface B2CResponse {
+export interface B2XResponse {
   headers: {
     "Content-Type": "application/json";
   };
   status: 200 | 400;
   body: {
     version: string;
-    action: B2CAction;
+    action: B2XAction;
     userMessage?: string;
     code?: string;
     status?: number;
@@ -62,7 +64,7 @@ interface Transformer {
 export class ClaimTransformer {
   name: string;
   options: TransFormerOptions;
-  error: B2CValidationError;
+  error: B2XValidationError;
   transformer: Transformer;
   constructor(transformer: Transformer, options: TransFormerOptions) {
     this.name = this.constructor.name;
@@ -71,7 +73,7 @@ export class ClaimTransformer {
   }
   /**
    * transform claims
-   * throw B2C Validation Error if failed
+   * throw B2X Validation Error if failed
    */
   public transform(claims: {
     [key: string]: string;
@@ -79,11 +81,11 @@ export class ClaimTransformer {
     try {
       return this.transformer(claims);
     } catch (error) {
-      // if valaidator throw B2CValidateError throw it over.
-      if (error instanceof B2CValidationError) {
+      // if validator throw B2XValidateError throw it over.
+      if (error instanceof B2XValidationError) {
         throw error;
       } else {
-        throw new B2CValidationError(
+        throw new B2XValidationError(
           this.options.userMessage,
           this.options.errorCode,
           "ShowBlockPage",
@@ -95,11 +97,87 @@ export class ClaimTransformer {
   }
 }
 
+export class HttpResponder {
+  constructor() {}
+  transformers: Array<ClaimTransformer>;
+  auth?: Authenticate;
+  /**
+   * addAuth
+   */
+  public addAuth(auth: Authenticate) {
+    this.auth = auth;
+    return this;
+  }
+  /**
+   * addTransformers
+transformers:    */
+  public addTransformers(transformers: Array<ClaimTransformer>) {
+    this.transformers = transformers;
+    return this;
+  }
+
+  /**
+   * httpTriger
+   */
+  public httpTriger(): AzureFunction {
+    return async function (context: Context, req: HttpRequest): Promise<void> {
+      context.log("HTTP trigger function processed a request.");
+
+      if (this.auth && !this.auth(req)) {
+        context.log.error("Authentication Failed");
+        context.res = new B2XValidationError(
+          "Internal Server Error. Please Contact administrator. [Basic Auth Error]",
+          "BASIC-AUTH-ERROR",
+          "ShowBlockPage",
+          null
+        ).response;
+        return;
+      }
+
+      const transformerNames = this.transformers.map((f) => f.name);
+      context.log(`Applied transformers are ${transformerNames}`);
+
+      const claims = req.body;
+
+      context.log("receive claims", claims);
+
+      let res: B2XResponse;
+      try {
+        res = await transformerChain(claims, this.transformers);
+      } catch (error) {
+        if (error instanceof B2XValidationError) {
+          context.log(error);
+          res = error.response;
+        } else {
+          context.log(error);
+        }
+      }
+
+      context.log("response sent", res);
+
+      context.res = res;
+    };
+  }
+}
+
 export const combineTransformer = (
-  transformers: Array<ClaimTransformer>
+  transformers: Array<ClaimTransformer>,
+  auth?: Authenticate
 ): AzureFunction => {
   return async function (context: Context, req: HttpRequest): Promise<void> {
     context.log("HTTP trigger function processed a request.");
+
+    if (auth && !auth(req)) {
+      context.log.error("Authentication Failed");
+      context.res = new B2XValidationError(
+        "Internal Server Error. Please Contact administrator. [Basic Auth Error]",
+        "BASIC-AUTH-ERROR",
+        "ShowBlockPage",
+        null
+      ).response;
+      return;
+    }
+
     const transformerNames = transformers.map((f) => f.name);
     context.log(`Applied transformers are ${transformerNames}`);
 
@@ -107,11 +185,11 @@ export const combineTransformer = (
 
     context.log("receive claims", claims);
 
-    let res: B2CResponse;
+    let res: B2XResponse;
     try {
       res = await transformerChain(claims, transformers);
     } catch (error) {
-      if (error instanceof B2CValidationError) {
+      if (error instanceof B2XValidationError) {
         context.log(error);
         res = error.response;
       } else {
@@ -125,10 +203,10 @@ export const combineTransformer = (
   };
 };
 
-export const transformerChain = async (
+const transformerChain = async (
   claims: { [key: string]: string },
   transformers: Array<ClaimTransformer>
-): Promise<B2CResponse> => {
+): Promise<B2XResponse> => {
   const output = await transformers.reduce(async (prev, cur) => {
     try {
       const claims = await prev;
@@ -141,12 +219,12 @@ export const transformerChain = async (
       throw error;
     }
   }, Promise.resolve(claims));
-  return claimToB2CResponse(output);
+  return claimToB2XResponse(output);
 };
 
-export const claimToB2CResponse = (claims: {
+export const claimToB2XResponse = (claims: {
   [key: string]: string;
-}): B2CResponse => {
+}): B2XResponse => {
   return {
     headers: {
       "Content-Type": "application/json",

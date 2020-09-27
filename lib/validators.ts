@@ -1,4 +1,4 @@
-import { ClaimTransformer, B2CValidationError, EXTENSION_APP_ID } from "./b2c";
+import { ClaimTransformer, B2XValidationError, EXTENSION_APP_ID } from "./b2x";
 
 export const nameValidator = new ClaimTransformer(
   (claims) => {
@@ -15,7 +15,7 @@ export const redsValidator = new ClaimTransformer(
       claims.displayName = "[Reds]" + claims.displayName;
       return Promise.resolve(claims);
     }
-    throw new B2CValidationError(
+    throw new B2XValidationError(
       "Reds じゃないとだめよ",
       "WAR001",
       "ShowBlockPage",
@@ -27,19 +27,20 @@ export const redsValidator = new ClaimTransformer(
   }
 );
 
-export const mailDomainValidator = new ClaimTransformer(
-  (claims) => {
-    const allowedDomains = ["microsoft.com", "whdv.onmicrosoft.com"];
-    const domain = claims.email.split("@").pop();
-    if (!allowedDomains.includes(domain)) {
-      throw new B2CValidationError(
-        `Your domain ${domain} is not allowed`,
-        "Error0000",
-        "ShowBlockPage",
-        "error"
-      );
-    }
-    return Promise.resolve(claims);
-  },
-  { continueOnError: false }
-);
+export class MailDomainValidator extends ClaimTransformer {
+  constructor(allowedDomains: Array<string>) {
+    const transformer = (claims) => {
+      const domain = claims?.email?.split("@").pop();
+      if (!allowedDomains.includes(domain)) {
+        throw new B2XValidationError(
+          `Your domain ${domain} is not allowed`,
+          "Error0000",
+          "ShowBlockPage",
+          "error"
+        );
+      }
+      return Promise.resolve(claims);
+    };
+    super(transformer, { continueOnError: false });
+  }
+}
