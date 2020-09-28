@@ -98,28 +98,27 @@ export class ClaimTransformer {
 }
 
 export class HttpResponder {
-  constructor() {}
   transformers: Array<ClaimTransformer>;
   auth?: Authenticate;
   /**
    * addAuth
    */
-  public addAuth(auth: Authenticate) {
+  public addAuth(auth: Authenticate): HttpResponder {
     this.auth = auth;
     return this;
   }
   /**
    * addTransformers
 transformers:    */
-  public addTransformers(transformers: Array<ClaimTransformer>) {
+  public addTransformers(transformers: Array<ClaimTransformer>): HttpResponder {
     this.transformers = transformers;
     return this;
   }
 
   /**
-   * httpTriger
+   * httpTrigger
    */
-  public httpTriger(): AzureFunction {
+  public httpTrigger(): AzureFunction {
     return async function (context: Context, req: HttpRequest): Promise<void> {
       context.log("HTTP trigger function processed a request.");
 
