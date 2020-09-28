@@ -1,5 +1,5 @@
 import { AzureFunction } from "@azure/functions";
-import { combineTransformer } from "../lib/b2c";
+import { combineTransformer } from "../lib/b2x";
 import { MailDomainValidator } from "../lib/validators";
 import { basicAuth } from "../lib/auth";
 
